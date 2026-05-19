@@ -51,6 +51,7 @@ const mobileNavItems = [
 
 const emptyFeatured: InvestorFeaturedStartup = {
   id: "—",
+  slug: "",
   name: "No featured startup",
   category: "—",
   stage: "—",
@@ -59,6 +60,9 @@ const emptyFeatured: InvestorFeaturedStartup = {
   equityOffered: "—",
   image:
     "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80",
+  logo:
+    "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1200&q=80",
+  tags: [],
 };
 
 export function InvestorDashboardView({

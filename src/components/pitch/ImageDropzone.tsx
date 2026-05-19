@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { ImageIcon, Trash2, UploadCloud } from "lucide-react";
@@ -36,32 +36,19 @@ export function ImageDropzone({
   onFileSelect,
 }: ImageDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [internalError, setInternalError] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
 
-  useEffect(() => {
-    if (!file) {
-      setLocalPreview(null);
-      setProgress(0);
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setLocalPreview(url);
-    setProgress(20);
-    let pct = 20;
-    const id = window.setInterval(() => {
-      pct = Math.min(100, pct + 18);
-      setProgress(pct);
-      if (pct >= 100) window.clearInterval(id);
-    }, 90);
-    return () => {
-      window.clearInterval(id);
-      URL.revokeObjectURL(url);
-    };
+  const filePreview = useMemo(() => {
+    if (!file) return null;
+    return URL.createObjectURL(file);
   }, [file]);
 
-  const previewSrc = localPreview ?? remoteUrl ?? null;
+  useEffect(() => {
+    if (!filePreview) return;
+    return () => URL.revokeObjectURL(filePreview);
+  }, [filePreview]);
+
+  const previewSrc = file ? (filePreview ?? remoteUrl) : (remoteUrl ?? null);
   const visibleError = error ?? internalError;
 
   const handleFile = (next: File | null) => {
@@ -161,14 +148,18 @@ export function ImageDropzone({
                 </Button>
               </div>
             </div>
-            {file && progress < 100 ? (
-              <div className="absolute inset-x-0 top-0 h-1 bg-white/50">
+            {file ? (
+              <motion.div
+                key={`${file.name}-${file.size}-${file.lastModified}`}
+                className="absolute inset-x-0 top-0 h-1 overflow-hidden bg-white/50"
+              >
                 <motion.div
                   className="h-full bg-[#387ED1]"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${progress}%` }}
+                  initial={{ width: "0%" }}
+                  animate={{ width: "100%" }}
+                  transition={{ duration: 0.45, ease: "easeOut" }}
                 />
-              </div>
+              </motion.div>
             ) : null}
           </>
         ) : (

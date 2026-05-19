@@ -493,35 +493,35 @@ async function seed() {
     if (error) throw error;
   }
 
-  const marketSizePayload = startups
-    .map((s) => {
-      const startupId = startupBySlug.get(s.slug);
-      if (!startupId) return null;
-      return {
+  const marketSizePayload = startups.flatMap((s) => {
+    const startupId = startupBySlug.get(s.slug);
+    if (!startupId) return [];
+    return [
+      {
         startup_id: startupId,
         tam: 5_000_000_000,
         sam: 1_200_000_000,
         som: 250_000_000,
-      };
-    })
-    .filter(Boolean);
+      },
+    ];
+  });
 
   const { error: marketSizeError } = await supabase
     .from("startup_market_sizes")
     .upsert(marketSizePayload, { onConflict: "startup_id" });
   if (marketSizeError) throw marketSizeError;
 
-  const pitchPayload = startups
-    .map((s) => {
-      const startupId = startupBySlug.get(s.slug);
-      if (!startupId) return null;
-      return {
+  const pitchPayload = startups.flatMap((s) => {
+    const startupId = startupBySlug.get(s.slug);
+    if (!startupId) return [];
+    return [
+      {
         startup_id: startupId,
         executive_summary: `${s.name} is scaling rapidly in ${s.industry} and opening a strategic fundraising round.`,
         status: "approved" as const,
-      };
-    })
-    .filter(Boolean);
+      },
+    ];
+  });
 
   const { error: deletePitchError } = await supabase
     .from("pitch_submissions")

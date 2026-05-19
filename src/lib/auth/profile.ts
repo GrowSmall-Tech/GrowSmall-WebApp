@@ -1,23 +1,9 @@
-import type { User } from "@supabase/supabase-js";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 import { getRoleFromUser, isUserRole, type UserRole } from "@/lib/auth/constants";
 
-type SupabaseLikeClient = {
-  from: (table: string) => {
-    select: (columns: string) => {
-      eq: (column: string, value: string) => {
-        maybeSingle: () => Promise<{ data: Record<string, unknown> | null }>;
-      };
-    };
-    upsert: (
-      values: Record<string, unknown>,
-      options?: { onConflict?: string },
-    ) => Promise<{ error: { message: string } | null }>;
-  };
-};
-
 export async function resolveRoleForUser(
-  supabase: SupabaseLikeClient,
+  supabase: SupabaseClient,
   user: User,
 ): Promise<UserRole | null> {
   const profileResult = await supabase
@@ -43,7 +29,7 @@ export async function resolveRoleForUser(
 }
 
 export async function upsertProfileFromUser(
-  supabase: SupabaseLikeClient,
+  supabase: SupabaseClient,
   user: User,
   preferredRole?: UserRole | null,
 ): Promise<UserRole | null> {
