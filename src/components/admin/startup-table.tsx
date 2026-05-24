@@ -14,6 +14,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 
+import { DeleteStartupModal } from "@/components/admin/DeleteStartupModal";
 import { StatusBadge } from "@/components/admin/status-badge";
 
 const ADMIN_LOGO_FALLBACK = "/images/logo-placeholder.svg";
@@ -41,7 +42,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  deleteStartupAction,
   toggleFeaturedAction,
   toggleTrendingAction,
   updateStartupStatusAction,
@@ -380,22 +380,7 @@ export function StartupTable({
                       </button>
                     ) : null}
                     {allowDelete ? (
-                      <button
-                        type="button"
-                        disabled={pending}
-                        className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
-                        onClick={() => {
-                          if (
-                            typeof window !== "undefined" &&
-                            !window.confirm(`Delete ${row.name}?`)
-                          ) {
-                            return;
-                          }
-                          runAction(() => deleteStartupAction(row.id));
-                        }}
-                      >
-                        Delete
-                      </button>
+                      <DeleteStartupModal startup={row} disabled={pending} />
                     ) : null}
                   </div>
                 </TableCell>

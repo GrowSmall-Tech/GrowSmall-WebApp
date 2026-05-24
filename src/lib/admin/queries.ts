@@ -18,6 +18,9 @@ export type AdminDashboardBundle = {
   totalFundingAsk: number;
   totalInvested: number;
   approvedPitchCount: number;
+  investorKycPending: number;
+  investorKycApproved: number;
+  investorKycRejected: number;
 };
 
 export async function fetchAdminDashboardBundle(): Promise<
@@ -42,6 +45,9 @@ export async function fetchAdminDashboardBundle(): Promise<
       fundingRes,
       investmentsRes,
       pitchApprovedRes,
+      investorKycPendingRes,
+      investorKycApprovedRes,
+      investorKycRejectedRes,
     ] = await Promise.all([
       supabase
         .from("startups")
@@ -82,6 +88,21 @@ export async function fetchAdminDashboardBundle(): Promise<
         .from("pitch_submissions")
         .select("id", { count: "exact", head: true })
         .eq("status", "approved"),
+      supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("role", "investor")
+        .eq("investor_status", "pending_approval"),
+      supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("role", "investor")
+        .eq("investor_status", "approved"),
+      supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("role", "investor")
+        .eq("investor_status", "rejected"),
     ]);
 
     if (startupsListRes.error) throw new Error(startupsListRes.error.message);
@@ -109,6 +130,9 @@ export async function fetchAdminDashboardBundle(): Promise<
       totalFundingAsk,
       totalInvested,
       approvedPitchCount: pitchApprovedRes.count ?? 0,
+      investorKycPending: investorKycPendingRes.count ?? 0,
+      investorKycApproved: investorKycApprovedRes.count ?? 0,
+      investorKycRejected: investorKycRejectedRes.count ?? 0,
     };
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to load dashboard";

@@ -7,6 +7,11 @@ import {
   roleDashboardPath,
   type UserRole,
 } from "@/lib/auth/constants";
+import {
+  investorPostAuthPath,
+  isInvestorApproved,
+} from "@/lib/auth/investor-status";
+import { isInvestorStatus, type InvestorStatus } from "@/types/investor-kyc";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 
 function redirectLegacyDashboards(url: NextRequest["nextUrl"]) {
@@ -86,21 +91,31 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const isApprovalPending = path === "/approval-pending";
   const isProtectedInvestor =
     path === "/investor" || path.startsWith("/investor/");
   const isProtectedFounder = path === "/founder" || path.startsWith("/founder/");
 
   let resolvedRole: UserRole | null = null;
+  let investorStatus: InvestorStatus | null = null;
+
   if (user) {
     const profileResult = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, investor_status")
       .eq("id", user.id)
       .maybeSingle();
 
     if (isUserRole(profileResult.data?.role)) {
       resolvedRole = profileResult.data.role;
-    } else {
+    }
+    if (profileResult.data?.role === "investor") {
+      investorStatus = isInvestorStatus(profileResult.data.investor_status)
+        ? profileResult.data.investor_status
+        : "pending_approval";
+    }
+
+    if (!resolvedRole) {
       const userResult = await supabase
         .from("users")
         .select("role")
@@ -132,6 +147,20 @@ export async function middleware(request: NextRequest) {
     if (isProtectedFounder && resolvedRole !== "founder") {
       return NextResponse.redirect(new URL("/auth/login", request.url));
     }
+
+    if (
+      isProtectedInvestor &&
+      resolvedRole === "investor" &&
+      !isInvestorApproved(investorStatus)
+    ) {
+      return NextResponse.redirect(new URL("/approval-pending", request.url));
+    }
+  }
+
+  if (user && isApprovalPending && resolvedRole === "investor") {
+    if (isInvestorApproved(investorStatus)) {
+      return NextResponse.redirect(new URL("/investor/dashboard", request.url));
+    }
   }
 
   if (
@@ -141,9 +170,11 @@ export async function middleware(request: NextRequest) {
       path.startsWith("/auth/signup") ||
       path === "/auth/select-role")
   ) {
-    return NextResponse.redirect(
-      new URL(roleDashboardPath(resolvedRole), request.url),
-    );
+    const destination =
+      resolvedRole === "investor"
+        ? investorPostAuthPath(investorStatus)
+        : roleDashboardPath(resolvedRole);
+    return NextResponse.redirect(new URL(destination, request.url));
   }
 
   return response;
@@ -156,5 +187,6 @@ export const config = {
     "/founder/:path*",
     "/dashboard/:path*",
     "/auth/:path*",
+    "/approval-pending",
   ],
 };

@@ -18,7 +18,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { KycUpload } from "@/components/investor/KycUpload";
+import {
+  INCOME_DOC_HINTS,
+  KYC_DOC_HINTS,
+} from "@/lib/auth/investor-status";
 import { roleDashboardPath } from "@/lib/auth/constants";
+import { registerInvestorWithKyc } from "@/lib/actions/investor-signup";
 import { upsertProfileFromUser } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/client";
 
@@ -171,6 +177,8 @@ export function InvestorSignupForm() {
   const [interest, setInterest] = useState("");
   const [budget, setBudget] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [kycFile, setKycFile] = useState<File | null>(null);
+  const [incomeFile, setIncomeFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -185,38 +193,47 @@ export function InvestorSignupForm() {
       setError("Please confirm you agree to the terms and disclosures.");
       return;
     }
+    if (!kycFile) {
+      setError("KYC document is required.");
+      return;
+    }
+    if (!incomeFile) {
+      setError("Income certificate is required.");
+      return;
+    }
 
     setLoading(true);
     const supabase = createClient();
-    const origin =
-      typeof window !== "undefined" ? window.location.origin : undefined;
 
     try {
-      const { data, error: signErr } = await supabase.auth.signUp({
+      const formData = new FormData();
+      formData.set("email", email.trim());
+      formData.set("password", password);
+      formData.set("full_name", fullName.trim());
+      formData.set("investment_interest", interest);
+      formData.set("budget_range", budget);
+      formData.set("kyc_document", kycFile);
+      formData.set("income_certificate", incomeFile);
+
+      const registered = await registerInvestorWithKyc(formData);
+      if (!registered.ok) {
+        setError(registered.error);
+        return;
+      }
+
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
-        options: {
-          emailRedirectTo: origin ? `${origin}/auth/callback` : undefined,
-          data: {
-            role: "investor",
-            full_name: fullName.trim(),
-            investment_interest: interest,
-            budget_range: budget,
-          },
-        },
       });
-      if (signErr) {
-        setError(signErr.message);
+      if (signInErr) {
+        setError(
+          "Account created. Please sign in — your documents are under review.",
+        );
+        router.push("/auth/login?registered=investor");
         return;
       }
-      if (!data.session) {
-        router.push("/auth/login?registered=investor&message=confirm-email");
-        return;
-      }
-      if (data.user) {
-        await upsertProfileFromUser(supabase, data.user, "investor");
-      }
-      router.replace(roleDashboardPath("investor"));
+
+      router.replace("/approval-pending");
       router.refresh();
     } finally {
       setLoading(false);
@@ -320,6 +337,26 @@ export function InvestorSignupForm() {
               </Select>
             </Field>
           </div>
+
+          <KycUpload
+            id="kyc-document"
+            label="Upload KYC Document"
+            hint="Government-issued ID for identity verification."
+            docTypes={KYC_DOC_HINTS}
+            file={kycFile}
+            onFileChange={setKycFile}
+            disabled={loading}
+          />
+
+          <KycUpload
+            id="income-certificate"
+            label="Upload Income Certificate"
+            hint="Proof of income for eligibility review."
+            docTypes={INCOME_DOC_HINTS}
+            file={incomeFile}
+            onFileChange={setIncomeFile}
+            disabled={loading}
+          />
 
           <label className="flex cursor-pointer gap-3 text-sm text-slate-600 leading-snug select-none">
             <Checkbox checked={agreeTerms} onCheckedChange={(v) => setAgreeTerms(v === true)} />

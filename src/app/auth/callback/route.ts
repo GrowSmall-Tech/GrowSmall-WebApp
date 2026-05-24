@@ -2,9 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { roleDashboardPath } from "@/lib/auth/constants";
 import {
-  roleDashboardPath
-} from "@/lib/auth/constants";
+  fetchInvestorStatusForUser,
+  investorPostAuthPath,
+} from "@/lib/auth/investor-status";
 import { resolveRoleForUser, upsertProfileFromUser } from "@/lib/auth/profile";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 
@@ -50,8 +52,14 @@ export async function GET(request: Request) {
     ? (await upsertProfileFromUser(supabase, user)) ??
       (await resolveRoleForUser(supabase, user))
     : null;
-  const next =
-    role != null ? roleDashboardPath(role) : "/auth/select-role";
+
+  let next = "/auth/select-role";
+  if (role === "investor" && user) {
+    const status = await fetchInvestorStatusForUser(supabase, user.id);
+    next = investorPostAuthPath(status);
+  } else if (role != null) {
+    next = roleDashboardPath(role);
+  }
 
   return NextResponse.redirect(new URL(next, origin));
 }

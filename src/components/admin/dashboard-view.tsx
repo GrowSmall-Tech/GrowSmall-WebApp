@@ -57,6 +57,9 @@ export function AdminDashboardView({
   founderCount,
   totalFundingAsk,
   totalInvested,
+  investorKycPending,
+  investorKycApproved,
+  investorKycRejected,
 }: {
   startups: StartupWithPitch[];
   recentUsers: UserRow[];
@@ -67,6 +70,9 @@ export function AdminDashboardView({
   founderCount: number;
   totalFundingAsk: number;
   totalInvested: number;
+  investorKycPending: number;
+  investorKycApproved: number;
+  investorKycRejected: number;
 }) {
   const dashboardRange = useAdminStore((s) => s.dashboardRange);
   const setDashboardRange = useAdminStore((s) => s.setDashboardRange);
@@ -117,6 +123,25 @@ export function AdminDashboardView({
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <AnalyticsCard
+          title="Pending Investor KYC"
+          value={`${investorKycPending}`}
+          subtitle={`${investorKycApproved} approved · ${investorKycRejected} rejected`}
+        />
+        <AnalyticsCard
+          title="Approved Investors"
+          value={`${investorKycApproved}`}
+          subtitle="Dashboard access granted"
+        />
+      </div>
+
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" className="rounded-lg" asChild>
+          <a href="/admin/investors">Review investor documents</a>
+        </Button>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-4">

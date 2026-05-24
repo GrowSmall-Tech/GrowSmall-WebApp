@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Plus,
   Settings,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 
@@ -18,6 +19,7 @@ import { cn } from "@/lib/utils";
 const mainNav = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/businesses", label: "Businesses", icon: Building2 },
+  { href: "/admin/investors", label: "Investor KYC", icon: ShieldCheck },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
 ];

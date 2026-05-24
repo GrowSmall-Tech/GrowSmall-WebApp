@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { assertApprovedInvestor } from "@/lib/auth/investor-approval";
 import { createClient } from "@/lib/supabase/server";
 
 function bumpInvestorPaths() {
@@ -20,6 +21,7 @@ export async function toggleSavedStartup(startupId: string) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
+  await assertApprovedInvestor(supabase, user.id);
 
   const existing = await supabase
     .from("saved_startups")
@@ -197,6 +199,7 @@ export async function submitInvestmentInterest(input: {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
+  await assertApprovedInvestor(supabase, user.id);
 
   const startupRes = await supabase
     .from("startups")
@@ -278,6 +281,8 @@ export async function recordCheckoutInvestment(input: {
   if (profileRes.data?.role !== "investor") {
     throw new Error("Only investor accounts can record portfolio investments.");
   }
+
+  await assertApprovedInvestor(supabase, user.id);
 
   if (!input.amount || input.amount <= 0) {
     throw new Error("Enter a valid investment amount.");

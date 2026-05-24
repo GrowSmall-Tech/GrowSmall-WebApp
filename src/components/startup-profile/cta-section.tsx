@@ -3,9 +3,12 @@
 import { useState, useTransition } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { InvestNowButton } from "@/components/investor-checkout/invest-now-button";
+import { checkInvestorCanInvestAction } from "@/lib/actions/check-investor-approval";
 import { submitInvestmentInterest } from "@/lib/actions/investor";
+import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import type { InvestorCheckoutStartup } from "@/types/investor-checkout";
 
@@ -22,20 +25,30 @@ export function CTASection({
   startupId: string;
   checkoutStartup: InvestorCheckoutStartup;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState<string | null>(null);
 
   const handleInterest = (amount?: number) => {
     setNote(null);
     startTransition(() => {
-      void submitInvestmentInterest({
+      void checkInvestorCanInvestAction()
+        .then((gate) => {
+          if (!gate.allowed) {
+            if (gate.message) toast.error(gate.message);
+            if (gate.redirectTo) router.push(gate.redirectTo);
+            return null;
+          }
+          return submitInvestmentInterest({
         startupId,
         amountInterest: amount ?? null,
-        message: amount
-          ? "Interested in this startup. Please share detailed deck and financials."
-          : "Please share full pitch deck and data room.",
-      })
+            message: amount
+              ? "Interested in this startup. Please share detailed deck and financials."
+              : "Please share full pitch deck and data room.",
+          });
+        })
         .then((result) => {
+          if (!result) return;
           if (result.duplicate) {
             setNote("You have already requested this startup. Founder will contact you soon.");
             return;

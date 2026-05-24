@@ -29,6 +29,9 @@ export default async function AdminDashboardPage() {
       founderCount={data.founderCount}
       totalFundingAsk={data.totalFundingAsk}
       totalInvested={data.totalInvested}
+      investorKycPending={data.investorKycPending}
+      investorKycApproved={data.investorKycApproved}
+      investorKycRejected={data.investorKycRejected}
     />
   );
 }

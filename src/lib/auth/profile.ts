@@ -42,16 +42,28 @@ export async function upsertProfileFromUser(
       ? userMeta.full_name.trim()
       : null;
 
-  const upsertResult = await supabase.from("profiles").upsert(
-    {
-      id: user.id,
-      email: user.email ?? "",
-      full_name: fullName,
-      avatar_url: userMeta?.avatar_url ?? null,
-      role: resolvedRole,
-    },
-    { onConflict: "id" },
-  );
+  const profilePayload: Record<string, unknown> = {
+    id: user.id,
+    email: user.email ?? "",
+    full_name: fullName,
+    avatar_url: userMeta?.avatar_url ?? null,
+    role: resolvedRole,
+  };
+
+  if (resolvedRole === "investor") {
+    const existing = await supabase
+      .from("profiles")
+      .select("investor_status")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (!existing.data?.investor_status) {
+      profilePayload.investor_status = "pending_approval";
+    }
+  }
+
+  const upsertResult = await supabase.from("profiles").upsert(profilePayload, {
+    onConflict: "id",
+  });
 
   if (upsertResult.error) return resolvedRole;
 

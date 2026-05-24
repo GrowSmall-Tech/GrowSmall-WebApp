@@ -14,6 +14,10 @@ import {
   roleDashboardPath,
   type UserRole,
 } from "@/lib/auth/constants";
+import {
+  fetchInvestorStatusForUser,
+  investorPostAuthPath,
+} from "@/lib/auth/investor-status";
 import { resolveRoleForUser, upsertProfileFromUser } from "@/lib/auth/profile";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -98,13 +102,33 @@ export function LoginForm() {
         return;
       }
 
-      const destination =
-        nextPath?.startsWith("/") && nextPath.length > 1
-          ? isRoleAllowedPath(effectiveRole, nextPath)
-            ? nextPath
-            : roleDashboardPath(effectiveRole)
-          : roleDashboardPath(effectiveRole);
-      console.log("Redirecting to:", destination);
+      let destination = roleDashboardPath(effectiveRole);
+      if (effectiveRole === "investor") {
+        const status = await fetchInvestorStatusForUser(supabase, user.id);
+        const investorHome = investorPostAuthPath(status);
+        if (
+          nextPath?.startsWith("/") &&
+          nextPath.length > 1 &&
+          isRoleAllowedPath(effectiveRole, nextPath) &&
+          status === "approved"
+        ) {
+          destination = nextPath;
+        } else if (
+          nextPath?.startsWith("/investor") &&
+          status !== "approved"
+        ) {
+          destination = "/approval-pending";
+        } else {
+          destination = investorHome;
+        }
+      } else if (
+        nextPath?.startsWith("/") &&
+        nextPath.length > 1 &&
+        isRoleAllowedPath(effectiveRole, nextPath)
+      ) {
+        destination = nextPath;
+      }
+
       router.replace(destination);
       router.refresh();
     } finally {

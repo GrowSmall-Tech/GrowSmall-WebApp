@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 
 import { ADMIN_SESSION_COOKIE, verifyAdminSessionToken } from "@/lib/admin/session";
+import { purgeStartupMediaStorage } from "@/lib/admin/startup-storage";
 import { createAdminServiceClient } from "@/lib/supabase/admin-server";
 import type {
   PitchSubmissionStatus,
@@ -55,14 +56,16 @@ export async function listUsersAction() {
   return data;
 }
 
-async function revalidateStartupSurfaces(supabase: ReturnType<typeof adminDb>, id: string) {
-  const { data } = await supabase.from("startups").select("slug").eq("id", id).maybeSingle();
-  if (data?.slug) {
-    revalidatePath(`/startup/${data.slug}`);
+async function revalidateStartupSurfaces(slug?: string | null) {
+  if (slug) {
+    revalidatePath(`/startup/${slug}`);
   }
   revalidatePath("/");
   revalidatePath("/explore");
   revalidatePath("/investor/dashboard");
+  revalidatePath("/investor/startups");
+  revalidatePath("/founder/dashboard");
+  revalidatePath("/founder/pitch");
 }
 
 export async function updateStartupStatusAction(
@@ -122,7 +125,8 @@ export async function updateStartupStatusAction(
   }
   revalidatePath("/admin/dashboard");
   revalidatePath("/admin/businesses");
-  await revalidateStartupSurfaces(supabase, id);
+  const { data: slugRow } = await supabase.from("startups").select("slug").eq("id", id).maybeSingle();
+  await revalidateStartupSurfaces(slugRow?.slug);
 }
 
 export async function updatePitchStatusAction(
@@ -150,7 +154,8 @@ export async function toggleFeaturedAction(id: string, isFeatured: boolean) {
   if (error) throw new Error(error.message);
   revalidatePath("/admin/dashboard");
   revalidatePath("/admin/businesses");
-  await revalidateStartupSurfaces(supabase, id);
+  const { data: slugRow } = await supabase.from("startups").select("slug").eq("id", id).maybeSingle();
+  await revalidateStartupSurfaces(slugRow?.slug);
 }
 
 export async function toggleTrendingAction(id: string, isTrending: boolean) {
@@ -163,7 +168,8 @@ export async function toggleTrendingAction(id: string, isTrending: boolean) {
   if (error) throw new Error(error.message);
   revalidatePath("/admin/dashboard");
   revalidatePath("/admin/businesses");
-  await revalidateStartupSurfaces(supabase, id);
+  const { data: slugRow } = await supabase.from("startups").select("slug").eq("id", id).maybeSingle();
+  await revalidateStartupSurfaces(slugRow?.slug);
 }
 
 export async function createStartupAction(input: {
@@ -252,17 +258,52 @@ export async function updateStartupAction(
   if (error) throw new Error(error.message);
   revalidatePath("/admin/businesses");
   revalidatePath("/admin/dashboard");
-  await revalidateStartupSurfaces(supabase, id);
+  const { data: slugRow } = await supabase.from("startups").select("slug").eq("id", id).maybeSingle();
+  await revalidateStartupSurfaces(slugRow?.slug);
 }
 
 export async function deleteStartupAction(id: string) {
   await requireAdmin();
   const supabase = adminDb();
-  await revalidateStartupSurfaces(supabase, id);
+
+  const { data: startup, error: fetchError } = await supabase
+    .from("startups")
+    .select("id, slug, logo_url, banner_url, cover_image_url, pitch_deck_url")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchError) throw new Error(fetchError.message);
+  if (!startup) throw new Error("Startup not found");
+
+  const { data: pitches, error: pitchesError } = await supabase
+    .from("pitch_submissions")
+    .select("id, pitch_deck_url")
+    .eq("startup_id", id);
+
+  if (pitchesError) throw new Error(pitchesError.message);
+
+  const mediaUrls = [
+    startup.logo_url,
+    startup.banner_url,
+    startup.cover_image_url,
+    startup.pitch_deck_url,
+    ...(pitches ?? []).map((row) => row.pitch_deck_url),
+  ];
+
+  await purgeStartupMediaStorage(supabase, id, mediaUrls);
+
+  const { error: pitchDeleteError } = await supabase
+    .from("pitch_submissions")
+    .delete()
+    .eq("startup_id", id);
+  if (pitchDeleteError) throw new Error(pitchDeleteError.message);
+
   const { error } = await supabase.from("startups").delete().eq("id", id);
   if (error) throw new Error(error.message);
+
   revalidatePath("/admin/businesses");
   revalidatePath("/admin/dashboard");
+  await revalidateStartupSurfaces(startup.slug);
 }
 
 export async function setUserSuspendedAction(id: string, suspended: boolean) {
@@ -316,7 +357,12 @@ export async function upsertStartupMetricsAction(
   );
   if (insErr) throw new Error(insErr.message);
   revalidatePath("/admin/businesses");
-  await revalidateStartupSurfaces(supabase, startupId);
+  const { data: slugRow } = await supabase
+    .from("startups")
+    .select("slug")
+    .eq("id", startupId)
+    .maybeSingle();
+  await revalidateStartupSurfaces(slugRow?.slug);
 }
 
 export async function getAdminAnalyticsSnapshotAction() {
